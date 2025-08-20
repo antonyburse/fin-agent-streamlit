@@ -1,3 +1,4 @@
+st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
 import yfinance as yf
 import pandas as pd
 import streamlit as st
