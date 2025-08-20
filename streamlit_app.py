@@ -1,8 +1,9 @@
-st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
+import streamlit as st
 import yfinance as yf
 import pandas as pd
-import streamlit as st
 import datetime
+
+st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
 
 st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
 st.title("📈 Fin Agent - Sinais Diários")
