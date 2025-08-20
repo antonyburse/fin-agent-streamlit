@@ -26,8 +26,14 @@ for ticker in tickers:
     data["EMA200"] = data["Close"].ewm(span=200, adjust=False).mean()
     data["ATR"] = (data["High"] - data["Low"]).rolling(14).mean()
 
+    # Verifica se as colunas necessárias existem
+    required_cols = ["Close", "EMA50", "EMA200", "ATR"]
+    if not all(col in data.columns for col in required_cols):
+        st.write(f"Sem dados válidos para {ticker}")
+        continue
+
     # Remove NaNs
-    data = data.dropna(subset=["EMA50", "EMA200", "ATR", "Close"])
+    data = data.dropna(subset=required_cols)
     if data.empty:
         st.write(f"Sem dados válidos para {ticker}")
         continue
