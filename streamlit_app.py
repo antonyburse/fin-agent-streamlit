@@ -4,13 +4,11 @@ import pandas as pd
 import datetime
 
 st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
-
-st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
 st.title("📈 Fin Agent - Sinais Diários")
 
 # Lista de ativos
-tickers = ["EURUSD=X", "USDJPY=X", "GBPUSD=X", "XAUUSD=X", 
-           "BTC-USD", "ETH-USD", "PETR4.SA", "VALE3.SA", 
+tickers = ["EURUSD=X", "USDJPY=X", "GBPUSD=X", "XAUUSD=X",
+           "BTC-USD", "ETH-USD", "PETR4.SA", "VALE3.SA",
            "ITUB4.SA", "AAPL", "MSFT", "AMZN"]
 
 # Seleção de data
@@ -22,20 +20,34 @@ for ticker in tickers:
     if data.empty:
         st.write(f"Sem dados para {ticker}")
         continue
+
+    # Calcula EMAs e ATR
     data["EMA50"] = data["Close"].ewm(span=50, adjust=False).mean()
     data["EMA200"] = data["Close"].ewm(span=200, adjust=False).mean()
     data["ATR"] = (data["High"] - data["Low"]).rolling(14).mean()
-    
+
+    # Remove NaNs
+    data = data.dropna(subset=["EMA50", "EMA200", "ATR", "Close"])
+    if data.empty:
+        st.write(f"Sem dados válidos para {ticker}")
+        continue
+
     last = data.iloc[-1]
+
+    ema50 = last["EMA50"]
+    ema200 = last["EMA200"]
+    close = last["Close"]
+    atr = last["ATR"]
+
     signal = "⛔ Neutro"
-    if last["EMA50"] > last["EMA200"]:
+    if ema50 > ema200:
         signal = "🟢 Compra"
-    elif last["EMA50"] < last["EMA200"]:
+    elif ema50 < ema200:
         signal = "🔴 Venda"
-    
-    sl = last["Close"] - 1.5*last["ATR"] if signal=="🟢 Compra" else last["Close"] + 1.5*last["ATR"]
-    tp = last["Close"] + 3*last["ATR"] if signal=="🟢 Compra" else last["Close"] - 3*last["ATR"]
-    
+
+    sl = close - 1.5*atr if signal=="🟢 Compra" else close + 1.5*atr
+    tp = close + 3*atr if signal=="🟢 Compra" else close - 3*atr
+
     st.subheader(f"{ticker}")
     st.write(f"Sinal: {signal}")
-    st.write(f"Entrada: {last['Close']:.2f}, SL: {sl:.2f}, TP: {tp:.2f}")
+    st.write(f"Entrada: {close:.2f}, SL: {sl:.2f}, TP: {tp:.2f}")
