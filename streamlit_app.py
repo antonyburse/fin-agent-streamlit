@@ -4,56 +4,78 @@ import pandas as pd
 import datetime
 
 st.set_page_config(page_title="Fin Agent Dashboard", layout="wide")
-st.title("📈 Fin Agent - Sinais Diários")
+st.title("📊 Fin Agent - Análises Diárias")
 
-# Lista de ativos
-tickers = ["EURUSD=X", "USDJPY=X", "GBPUSD=X", "XAUUSD=X",
-           "BTC-USD", "ETH-USD", "PETR4.SA", "VALE3.SA",
-           "ITUB4.SA", "AAPL", "MSFT", "AMZN"]
+# Lista de ativos (Forex, Ouro, Criptos, Ações Brasil e EUA)
+assets = {
+    "EURUSD=X": "Euro/USD",
+    "GBPUSD=X": "Libra/USD",
+    "USDJPY=X": "USD/JPY",
+    "XAUUSD=X": "Ouro",
+    "BTC-USD": "Bitcoin",
+    "ETH-USD": "Ethereum",
+    "PETR4.SA": "Petrobras",
+    "VALE3.SA": "Vale",
+    "ITUB4.SA": "Itaú",
+    "AAPL": "Apple",
+    "MSFT": "Microsoft",
+    "AMZN": "Amazon"
+}
 
-# Seleção de data
-start_date = st.date_input("Data inicial", datetime.date.today() - datetime.timedelta(days=365))
-end_date = st.date_input("Data final", datetime.date.today())
+# Período de análise
+end = datetime.datetime.now()
+start = end - datetime.timedelta(days=200)
 
-for ticker in tickers:
-    data = yf.download(ticker, start=start_date, end=end_date)
-    if data.empty:
-        st.write(f"Sem dados para {ticker}")
-        continue
+# Função para indicadores técnicos
+def add_indicators(df):
+    df["EMA50"] = df["Close"].ewm(span=50, adjust=False).mean()
+    df["EMA200"] = df["Close"].ewm(span=200, adjust=False).mean()
+    df["ATR"] = (df["High"] - df["Low"]).rolling(window=14).mean()
+    return df
 
-    # Calcula EMAs e ATR
-    data["EMA50"] = data["Close"].ewm(span=50, adjust=False).mean()
-    data["EMA200"] = data["Close"].ewm(span=200, adjust=False).mean()
-    data["ATR"] = (data["High"] - data["Low"]).rolling(14).mean()
+# Loop pelos ativos
+for ticker, name in assets.items():
+    st.subheader(f"🔹 {name} ({ticker})")
+    
+    try:
+        data = yf.download(ticker, start=start, end=end, interval="1d")
+        if data.empty:
+            st.write("Sem dados disponíveis.")
+            continue
 
-    # Verifica se as colunas necessárias existem
-    required_cols = ["Close", "EMA50", "EMA200", "ATR"]
-    if not all(col in data.columns for col in required_cols):
-        st.write(f"Sem dados válidos para {ticker}")
-        continue
+        data = add_indicators(data)
 
-    # Remove NaNs
-    data = data.dropna(subset=required_cols)
-    if data.empty:
-        st.write(f"Sem dados válidos para {ticker}")
-        continue
+        # Verifica se as colunas existem
+        required_cols = ["Close", "EMA50", "EMA200", "ATR"]
+        if not all(col in data.columns for col in required_cols):
+            st.write("Sem dados válidos para este ativo.")
+            continue
 
-    last = data.iloc[-1]
+        data = data.dropna(subset=required_cols)
+        if data.empty:
+            st.write("Sem dados válidos após limpeza.")
+            continue
 
-    ema50 = last["EMA50"]
-    ema200 = last["EMA200"]
-    close = last["Close"]
-    atr = last["ATR"]
+        last = data.iloc[-1]
 
-    signal = "⛔ Neutro"
-    if ema50 > ema200:
-        signal = "🟢 Compra"
-    elif ema50 < ema200:
-        signal = "🔴 Venda"
+        # Estratégia simples: cruzamento de médias
+        if last["EMA50"] > last["EMA200"]:
+            signal = "🟢 Compra"
+            stop = round(last["Close"] - 2 * last["ATR"], 2)
+            target = round(last["Close"] + 2 * last["ATR"], 2)
+        else:
+            signal = "🔴 Venda"
+            stop = round(last["Close"] + 2 * last["ATR"], 2)
+            target = round(last["Close"] - 2 * last["ATR"], 2)
 
-    sl = close - 1.5*atr if signal=="🟢 Compra" else close + 1.5*atr
-    tp = close + 3*atr if signal=="🟢 Compra" else close - 3*atr
+        # Exibir informações
+        st.write(f"**Sinal:** {signal}")
+        st.write(f"📌 Preço atual: {round(last['Close'], 2)}")
+        st.write(f"⛔ Stop Loss: {stop}")
+        st.write(f"🎯 Take Profit: {target}")
 
-    st.subheader(f"{ticker}")
-    st.write(f"Sinal: {signal}")
-    st.write(f"Entrada: {close:.2f}, SL: {sl:.2f}, TP: {tp:.2f}")
+        # Gráfico
+        st.line_chart(data[["Close", "EMA50", "EMA200"]])
+
+    except Exception as e:
+        st.error(f"Erro ao processar {ticker}: {e}")
